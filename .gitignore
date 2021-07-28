@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+#DirectX
+*\.vs
+*\Debug
