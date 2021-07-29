@@ -37,7 +37,11 @@ Application::Application()
 	_pPixelShader = nullptr;
 	_pVertexLayout = nullptr;
 	_pVertexBuffer = nullptr;
+
 	_pIndexBuffer = nullptr;
+    _pPyramidIndexBuffer = nullptr;
+    _pPyramidVertexBuffer = nullptr;
+
 	_pConstantBuffer = nullptr;
 }
 
@@ -148,24 +152,38 @@ HRESULT Application::InitShadersAndInputLayout()
 
 HRESULT Application::InitVertexBuffer()
 {
-	HRESULT hr;
+    HRESULT hr;
+
 
     // Create vertex buffer
     SimpleVertex vertices[] =
     {
         //front
-        { XMFLOAT3( -1.0f, 1.0f, 0.0f ), XMFLOAT4( 0.0f, 0.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, 1.0f, 0.0f ), XMFLOAT4( 0.0f, 1.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, -1.0f, 0.0f ), XMFLOAT4( 0.0f, 1.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, -1.0f, 0.0f ), XMFLOAT4( 1.0f, 0.0f, 0.0f, 1.0f ) },
-        
+        { XMFLOAT3(-1.0f, 1.0f, 0.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+        { XMFLOAT3(1.0f, 1.0f, 0.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, 0.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+
         //back
-        { XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
-        { XMFLOAT3( 1.0f, 1.0f, 1.0f ), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
-        { XMFLOAT3( -1.0f, -1.0f, 1.0f ), XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f) },
-        { XMFLOAT3( 1.0f, -1.0f, 1.0f ), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) }
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) }
     };
 
+    SimpleVertex pyramidVertices[] =
+    {
+        //bottom
+        { XMFLOAT3(-1.0f, 0.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(1.0f, 0.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, 0.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(1.0f, 0.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+
+        //top
+        { XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) }
+    };
+
+    //describe cube buffers
     D3D11_BUFFER_DESC bd;
 	ZeroMemory(&bd, sizeof(bd));
     bd.Usage = D3D11_USAGE_DEFAULT;
@@ -178,6 +196,21 @@ HRESULT Application::InitVertexBuffer()
     InitData.pSysMem = vertices;
 
     hr = _pd3dDevice->CreateBuffer(&bd, &InitData, &_pVertexBuffer);
+
+    //describe pyramid buffers
+	ZeroMemory(&bd, sizeof(bd));
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(SimpleVertex) * 5;
+    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bd.CPUAccessFlags = 0;
+
+	ZeroMemory(&InitData, sizeof(InitData));
+    InitData.pSysMem = pyramidVertices;
+
+    hr = _pd3dDevice->CreateBuffer(&bd, &InitData, &_pPyramidVertexBuffer);
+
+    _pVertexBuffers[0] = _pVertexBuffer;
+    _pVertexBuffers[1] = _pPyramidVertexBuffer;
 
     if (FAILED(hr))
         return hr;
@@ -217,6 +250,24 @@ HRESULT Application::InitIndexBuffer()
         6,3,7
     };
 
+    WORD pyramidIndices[] =
+    {
+        //bottom
+        0,1,2,
+        2,1,3,
+        
+        //front
+        0, 4, 1,
+        //right
+        1, 4, 3,
+
+        //back
+        3, 4, 2,
+
+        //left
+        2, 4, 0
+    };
+
 	D3D11_BUFFER_DESC bd;
 	ZeroMemory(&bd, sizeof(bd));
 
@@ -229,6 +280,18 @@ HRESULT Application::InitIndexBuffer()
 	ZeroMemory(&InitData, sizeof(InitData));
     InitData.pSysMem = indices;
     hr = _pd3dDevice->CreateBuffer(&bd, &InitData, &_pIndexBuffer);
+
+    //describe pyramid buffer
+    ZeroMemory(&bd, sizeof(bd));
+
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(WORD) * 18;
+    bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+
+    ZeroMemory(&InitData, sizeof(InitData));
+    InitData.pSysMem = pyramidIndices;
+    hr = _pd3dDevice->CreateBuffer(&bd, &InitData, &_pPyramidIndexBuffer);
 
     if (FAILED(hr))
         return hr;
@@ -458,6 +521,8 @@ void Application::Cleanup()
     if (_pConstantBuffer) _pConstantBuffer->Release();
     if (_pVertexBuffer) _pVertexBuffer->Release();
     if (_pIndexBuffer) _pIndexBuffer->Release();
+    if (_pPyramidVertexBuffer) _pPyramidVertexBuffer->Release();
+    if (_pPyramidIndexBuffer) _pPyramidIndexBuffer->Release();
     if (_pVertexLayout) _pVertexLayout->Release();
     if (_pVertexShader) _pVertexShader->Release();
     if (_pPixelShader) _pPixelShader->Release();
@@ -496,9 +561,10 @@ void Application::Update()
     //
     // Animate the cube
     //
-	XMStoreFloat4x4(&_world2, XMMatrixRotationZ(t) * XMMatrixTranslation(2.0f, 0.0f, 0.0f));
-    XMStoreFloat4x4(&_world, XMMatrixRotationZ(t) * XMMatrixTranslation(-2.0f, 0.0f, 0.0f));
-    
+	XMStoreFloat4x4(&_world3, XMMatrixRotationX(t) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	//XMStoreFloat4x4(&_world2, XMMatrixRotationZ(t) * XMMatrixTranslation(2.0f, 0.0f, 0.0f));
+    XMStoreFloat4x4(&_world, XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+    XMStoreFloat4x4(&_world, XMMatrixRotationX(t));
     if (GetAsyncKeyState(0x31) & 0x01)
     {
         if (showWireframe)
@@ -546,6 +612,7 @@ void Application::Draw()
     //
     // Renders a triangle
     //
+    //Render Cubes
 	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
 	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
     _pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
@@ -557,6 +624,13 @@ void Application::Draw()
     _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
     
     _pImmediateContext->DrawIndexed(36, 0, 0);
+
+    //Render Pyramids
+    world = XMLoadFloat4x4(&_world3);
+    cb.mWorld = XMMatrixTranspose(world);
+    _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+    _pImmediateContext->DrawIndexed(18, 0, 0);
     //
     // Present our back buffer to our front buffer
     //
